@@ -12,14 +12,66 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- Inter font -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
-  <style>body { font-family: 'Inter', sans-serif; }</style>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Header gradient shine */
+    .header-gradient {
+      background: linear-gradient(90deg, #4f46e5, #3b82f6, #06b6d4);
+      background-size: 200% 200%;
+      animation: hueShift 6s infinite linear;
+    }
+    @keyframes hueShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    /* Card shimmer on hover */
+    .shimmer-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .shimmer-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(120deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.0) 100%);
+      transform: skewX(-20deg);
+      transition: none;
+    }
+    .shimmer-card:hover::before {
+      left: 200%;
+      transition: left 0.8s ease-in-out;
+    }
+    /* Button glow */
+    .btn-glow {
+      background: linear-gradient(90deg, #10b981, #3b82f6);
+      background-size: 200% 200%;
+      transition: background-position 0.5s, box-shadow 0.3s;
+    }
+    .btn-glow:hover {
+      background-position: 100% 0;
+      box-shadow: 0 0 15px rgba(59,130,246,0.6), 0 0 8px rgba(16,185,129,0.6);
+    }
+    /* Toast animations */
+    @keyframes toast-in { from { opacity: 0; transform: translateX(50px);} to { opacity:1; transform: translateX(0);} }
+    @keyframes toast-out { from { opacity: 1; transform: translateX(0);} to { opacity:0; transform: translateX(50px);} }
+    .toast-item {
+      animation: toast-in 0.3s forwards;
+    }
+    .toast-out {
+      animation: toast-out 0.3s forwards;
+    }
+  </style>
 </head>
 <body id="body" class="bg-gray-100 transition-colors duration-300">
 
   <!-- Header -->
-  <div class="p-4 flex justify-between items-center bg-white shadow">
+  <div class="p-4 flex justify-between items-center header-gradient text-white">
     <h1 class="text-3xl font-bold">Campus Canteen</h1>
-    <button onclick="toggleDarkMode()" class="bg-gray-200 px-3 py-1 rounded">🌓 Theme</button>
+    <button onclick="toggleDarkMode()" class="bg-white bg-opacity-20 hover:bg-opacity-40 px-3 py-1 rounded backdrop-blur">
+      🌓 Theme
+    </button>
   </div>
 
   <!-- React Mount -->
@@ -31,16 +83,14 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // Sample Menu Data (with category & availability)
+    // Sample Menu Data
     const menu = [
       { id:1, category:'Snacks',   name:'Veg Sandwich',      desc:'Grilled veggies',           price:50,  image:'https://via.placeholder.com/150', available:true },
       { id:2, category:'Main',     name:'Paneer Masala',     desc:'Creamy curry',              price:120, image:'https://via.placeholder.com/150', available:true },
       { id:3, category:'Beverages', name:'Masala Chai',       desc:'Spiced tea',                price:20,  image:'https://via.placeholder.com/150', available:false }
-      // … add more items here …
     ];
 
     function App() {
-      // state
       const [cart, setCart] = useState([]);
       const [orders, setOrders] = useState([]);
       const [spices, setSpices] = useState({});
@@ -48,101 +98,81 @@
       const [favorites, setFavorites] = useState([]);
       const [selectedCategory, setSelectedCategory] = useState('All');
 
-      // load from localStorage
       useEffect(() => {
-        setOrders(JSON.parse(localStorage.getItem('orders') || '[]'));
-        setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
+        setOrders(JSON.parse(localStorage.getItem('orders')||'[]'));
+        setFavorites(JSON.parse(localStorage.getItem('favorites')||'[]'));
       }, []);
 
-      // simulate status change
       useEffect(() => {
         const timer = setInterval(() => {
           const updated = orders.map(o =>
             o.status==='Preparing' ? {...o, status:'Ready'} : o
           );
           setOrders(updated);
-          localStorage.setItem('orders', JSON.stringify(updated));
-        }, 30000);
-        return () => clearInterval(timer);
-      }, [orders]);
+          localStorage.setItem('orders',JSON.stringify(updated));
+        },30000);
+        return ()=>clearInterval(timer);
+      },[orders]);
 
-      // toast
-      const toast = msg => {
+      const showToast = (msg) => {
         const el = document.createElement('div');
-        el.className = 'bg-black text-white px-4 py-2 rounded shadow animate-fade-in';
+        el.className = 'bg-black text-white px-4 py-2 rounded shadow toast-item';
         el.innerText = msg;
         document.getElementById('toast-container').appendChild(el);
-        setTimeout(() => el.remove(), 3000);
+        setTimeout(() => {
+          el.classList.add('toast-out');
+          el.addEventListener('animationend', ()=>el.remove());
+        }, 2000);
       };
 
-      // toggle dark
       window.toggleDarkMode = () => {
         document.body.classList.toggle('bg-gray-900');
         document.body.classList.toggle('text-white');
       };
 
-      // favorites
       const toggleFav = id => {
-        const updated = favorites.includes(id)
-          ? favorites.filter(f=>f!==id)
-          : [...favorites, id];
+        const updated = favorites.includes(id) ? favorites.filter(f=>f!==id) : [...favorites,id];
         setFavorites(updated);
-        localStorage.setItem('favorites', JSON.stringify(updated));
-        toast(updated.includes(id)? '⭐ Added to favorites' : '⭐ Removed');
+        localStorage.setItem('favorites',JSON.stringify(updated));
+        showToast(updated.includes(id)? '⭐ Favorited':'⭐ Unfavorited');
       };
 
-      // spice change
-      const onSpice = (id,val) => {
-        setSpices(prev=>({...prev,[id]:val}));
-      };
+      const onSpice = (id,val) => setSpices(prev=>({...prev,[id]:val}));
 
-      // add to cart
       const addToCart = item => {
-        if(!item.available){ toast('❌ Item sold out'); return; }
+        if(!item.available){ showToast('❌ Sold Out'); return; }
         const spice = spices[item.id]||'Medium';
         const key = `${item.id}-${spice}`;
-        setCart(prev => {
-          const found=prev.find(i=>i.key===key);
+        setCart(prev=> {
+          const found = prev.find(i=>i.key===key);
           return found
             ? prev.map(i=>i.key===key?{...i,qty:i.qty+1}:i)
             : [...prev,{...item,spice,qty:1,key}];
         });
-        toast('✅ Added to cart');
+        showToast('✅ Added to cart');
       };
 
-      // qty change
-      const chQty = (key,delta) => {
-        setCart(prev => prev.map(i=>
-          i.key===key?{...i,qty:Math.max(1,i.qty+delta)}:i
-        ));
-      };
-      const rmCart = key => setCart(prev=>prev.filter(i=>i.key!==key));
+      const changeQty = (key,delta) => setCart(prev=>prev.map(i=>i.key===key?{...i,qty:Math.max(1,i.qty+delta)}:i));
+      const removeCart = key => setCart(prev=>prev.filter(i=>i.key!==key));
 
-      // place order
-      const place = () => {
+      const placeOrder = () => {
         const newOrd = {
-          items:cart,
-          total:cart.reduce((s,i)=>s+i.price*i.qty,0),
-          status:'Preparing',
-          time:new Date().toLocaleTimeString()
+          items:cart, total:cart.reduce((s,i)=>s+i.price*i.qty,0),
+          status:'Preparing', time:new Date().toLocaleTimeString()
         };
         const updated=[...orders,newOrd];
         setOrders(updated);
         localStorage.setItem('orders',JSON.stringify(updated));
-        setCart([]); toast('🎉 Order placed');
+        setCart([]); showToast('🎉 Order Placed');
       };
 
-      // clear orders
-      const clearAll = () => {
+      const clearOrders = () => {
         setOrders([]); localStorage.removeItem('orders');
-        toast('🗑️ Orders cleared');
+        showToast('🗑️ Orders Cleared');
       };
 
-      // categories
       const cats = ['All',...new Set(menu.map(i=>i.category))];
-      const visible = selectedCategory==='All'
-        ? menu
-        : menu.filter(i=>i.category===selectedCategory);
+      const visible = selectedCategory==='All' ? menu : menu.filter(i=>i.category===selectedCategory);
 
       return (
         <div>
@@ -151,86 +181,73 @@
             {cats.map(c=>(
               <button key={c}
                 onClick={()=>setSelectedCategory(c)}
-                className={`px-3 py-1 rounded-full border
-                  ${selectedCategory===c?'bg-blue-600 text-white':'bg-gray-200'}`}
+                className={`px-3 py-1 rounded-full border ${
+                  selectedCategory===c?'bg-blue-600 text-white':'bg-gray-200'
+                }`}
               >{c}</button>
             ))}
           </div>
 
-          {/* View Toggle */}
+          {/* Toggle */}
           <div className="flex justify-between mb-4">
-            <h2 className="text-2xl font-semibold">
-              {viewOrders?'My Orders':'Menu'}
-            </h2>
+            <h2 className="text-2xl font-semibold">{viewOrders?'My Orders':'Menu'}</h2>
             <button onClick={()=>setViewOrders(!viewOrders)}
               className="bg-blue-500 text-white px-3 py-1 rounded"
-            >
-              {viewOrders?'← Back':'📦 Orders'}
-            </button>
+            >{viewOrders?'← Back':'📦 Orders'}</button>
           </div>
 
           {viewOrders ? (
-            /* ORDERS LIST */
+            /* ORDERS */
             <div>
               {orders.length===0
                 ? <p>No orders yet.</p>
-                : orders.map((o,idx)=>(
-                  <div key={idx}
-                       className="bg-white/70 backdrop-blur-md p-4 rounded-xl shadow mb-4 border border-white/40">
+                : orders.map((o,i)=>(
+                  <div key={i} className="bg-white/70 backdrop-blur-md p-4 rounded-xl shadow mb-4 border border-white/40 shimmer-card">
                     <div className="flex justify-between mb-2">
-                      <span className="font-bold">Order #{idx+1}</span>
-                      <span className={`text-sm px-2 py-1 rounded-full
-                        ${o.status==='Preparing'?'bg-yellow-100 text-yellow-800':'bg-green-100 text-green-800'}`}
-                      >{o.status}</span>
+                      <span className="font-bold">Order #{i+1}</span>
+                      <span className={`text-sm px-2 py-1 rounded-full ${
+                        o.status==='Preparing'?'bg-yellow-100 text-yellow-800':'bg-green-100 text-green-800'
+                      }`}>{o.status}</span>
                     </div>
                     <ul className="text-sm mb-2">
                       {o.items.map((it,j)=><li key={j}>{it.name} × {it.qty} ({it.spice})</li>)}
                     </ul>
                     <div className="flex justify-between text-sm">
-                      <span>Total: ₹{o.total}</span>
-                      <span>{o.time}</span>
+                      <span>Total: ₹{o.total}</span><span>{o.time}</span>
                     </div>
                   </div>
                 ))
               }
-              <button onClick={clearAll}
-                className="bg-red-500 text-white px-4 py-1 rounded"
-              >Clear Orders</button>
+              <button onClick={clearOrders} className="btn-glow mt-2">Clear Orders</button>
             </div>
           ) : (
-            /* MENU GRID */
+            /* MENU */
             <>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {visible.map(item=>(
                   <div key={item.id}
-                       className="relative bg-white/70 backdrop-blur-md p-4 rounded-xl shadow-xl border border-white/40">
+                       className="relative bg-white/70 backdrop-blur-md p-4 rounded-xl shadow-xl border border-white/40 shimmer-card">
                     {/* Favorite */}
                     <button onClick={()=>toggleFav(item.id)}
                       className="absolute top-2 right-2 text-xl"
                     >{favorites.includes(item.id)?'⭐':'☆'}</button>
-
-                    {/* Availability Badge */}
-                    <span className={`inline-block text-xs px-2 py-1 rounded-full mb-2
-                      ${item.available?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}`}
-                    >{item.available?'Available':'Sold Out'}</span>
-
+                    {/* Availability */}
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full mb-2 ${
+                      item.available?'bg-green-100 text-green-800':'bg-red-100 text-red-800'
+                    }`}>{item.available?'Available':'Sold Out'}</span>
                     <img src={item.image} alt={item.name}
                          className="w-full h-32 object-cover rounded mb-2"/>
                     <h3 className="font-semibold">{item.name}</h3>
                     <p className="text-sm text-gray-600">{item.desc}</p>
                     <p className="mt-1 font-bold">₹{item.price}</p>
-
-                    {/* Spice Selector */}
                     <select onChange={e=>onSpice(item.id,e.target.value)}
                             className="w-full mt-2 border p-1 rounded">
                       {['None','Mild','Medium','Spicy'].map(sp=>(
                         <option key={sp} value={sp}>{sp}</option>
                       ))}
                     </select>
-
-                    {/* Add Button */}
                     <button onClick={()=>addToCart(item)}
-                      className="mt-2 w-full bg-green-600 hover:scale-105 transform text-white px-3 py-1 rounded transition"
+                      className="btn-glow mt-2 w-full px-3 py-1 rounded transform hover:scale-105"
                     >➕ Add to Cart</button>
                   </div>
                 ))}
@@ -238,25 +255,22 @@
 
               {/* CART */}
               {cart.length>0 && (
-                <div id="cart" className="bg-white p-4 rounded-xl shadow mt-6">
-                  <h2 className="text-xl font-semibold mb-2">
-                    🛒 Cart ({cart.reduce((s,i)=>s+i.qty,0)})
-                  </h2>
+                <div id="cart" className="bg-white p-4 rounded-xl shadow mt-6 shimmer-card">
+                  <h2 className="text-xl font-semibold mb-2">🛒 Cart ({cart.reduce((s,i)=>s+i.qty,0)})</h2>
                   {cart.map(i=>(
                     <div key={i.key} className="flex justify-between items-center mb-2">
                       <span>{i.name} ({i.spice}) × {i.qty}</span>
                       <div className="flex gap-1">
-                        <button onClick={()=>chQty(i.key,-1)} className="bg-gray-200 px-2 rounded">–</button>
-                        <button onClick={()=>chQty(i.key,1)}  className="bg-gray-200 px-2 rounded">+</button>
-                        <button onClick={()=>rmCart(i.key)}    className="text-red-500 px-2">×</button>
+                        <button onClick={()=>changeQty(i.key,-1)} className="bg-gray-200 px-2 rounded">–</button>
+                        <button onClick={()=>changeQty(i.key,1)}  className="bg-gray-200 px-2 rounded">+</button>
+                        <button onClick={()=>removeCart(i.key)}    className="text-red-500 px-2">×</button>
                       </div>
                     </div>
                   ))}
                   <p className="font-bold mt-2">Total: ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)}</p>
-                  <button onClick={place}
-                    className="mt-3 w-full bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded">
-                    Place Order
-                  </button>
+                  <button onClick={placeOrder}
+                    className="btn-glow mt-3 w-full px-4 py-2 rounded transform hover:scale-105"
+                  >Place Order</button>
                 </div>
               )}
             </>
@@ -265,16 +279,19 @@
       );
     }
 
-    // animate toast
+    // insert fade-in/out keyframes for toasts
     const style = document.createElement('style');
     style.innerHTML = `
-      @keyframes fade-in { from{opacity:0;transform:translateY(-10px);} to{opacity:1;transform:translateY(0);} }
-      .animate-fade-in { animation:fade-in 0.3s ease-out; }
+      @keyframes fade-in { from{opacity:0;transform:translateX(50px);} to{opacity:1;transform:translateX(0);} }
+      @keyframes fade-out{ from{opacity:1;transform:translateX(0);} to{opacity:0;transform:translateX(50px);} }
+      .toast-item { animation: fade-in 0.3s forwards; }
+      .toast-out { animation: fade-out 0.3s forwards; }
     `;
     document.head.appendChild(style);
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   </script>
 </body>
 </html>
+
 
