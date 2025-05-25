@@ -1,1 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Campus Canteen</title>
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Inter font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body id="body" class="bg-gray-100 transition-colors duration-300">
+
+  <!-- Header -->
+  <div class="p-4 flex justify-between items-center bg-white shadow">
+    <h1 class="text-3xl font-bold">Campus Canteen</h1>
+    <button onclick="toggleDarkMode()" class="bg-gray-200 px-3 py-1 rounded">🌓 Theme</button>
+  </div>
+
+  <!-- React Mount -->
+  <div id="root" class="p-4 max-w-4xl mx-auto"></div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-5 right-5 space-y-2 z-50"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Sample Menu Data (with category & availability)
+    const menu = [
+      { id:1, category:'Snacks',   name:'Veg Sandwich',      desc:'Grilled veggies',           price:50,  image:'https://via.placeholder.com/150', available:true },
+      { id:2, category:'Main',     name:'Paneer Masala',     desc:'Creamy curry',              price:120, image:'https://via.placeholder.com/150', available:true },
+      { id:3, category:'Beverages', name:'Masala Chai',       desc:'Spiced tea',                price:20,  image:'https://via.placeholder.com/150', available:false }
+      // … add more items here …
+    ];
+
+    function App() {
+      // state
+      const [cart, setCart] = useState([]);
+      const [orders, setOrders] = useState([]);
+      const [spices, setSpices] = useState({});
+      const [viewOrders, setViewOrders] = useState(false);
+      const [favorites, setFavorites] = useState([]);
+      const [selectedCategory, setSelectedCategory] = useState('All');
+
+      // load from localStorage
+      useEffect(() => {
+        setOrders(JSON.parse(localStorage.getItem('orders') || '[]'));
+        setFavorites(JSON.parse(localStorage.getItem('favorites') || '[]'));
+      }, []);
+
+      // simulate status change
+      useEffect(() => {
+        const timer = setInterval(() => {
+          const updated = orders.map(o =>
+            o.status==='Preparing' ? {...o, status:'Ready'} : o
+          );
+          setOrders(updated);
+          localStorage.setItem('orders', JSON.stringify(updated));
+        }, 30000);
+        return () => clearInterval(timer);
+      }, [orders]);
+
+      // toast
+      const toast = msg => {
+        const el = document.createElement('div');
+        el.className = 'bg-black text-white px-4 py-2 rounded shadow animate-fade-in';
+        el.innerText = msg;
+        document.getElementById('toast-container').appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+      };
+
+      // toggle dark
+      window.toggleDarkMode = () => {
+        document.body.classList.toggle('bg-gray-900');
+        document.body.classList.toggle('text-white');
+      };
+
+      // favorites
+      const toggleFav = id => {
+        const updated = favorites.includes(id)
+          ? favorites.filter(f=>f!==id)
+          : [...favorites, id];
+        setFavorites(updated);
+        localStorage.setItem('favorites', JSON.stringify(updated));
+        toast(updated.includes(id)? '⭐ Added to favorites' : '⭐ Removed');
+      };
+
+      // spice change
+      const onSpice = (id,val) => {
+        setSpices(prev=>({...prev,[id]:val}));
+      };
+
+      // add to cart
+      const addToCart = item => {
+        if(!item.available){ toast('❌ Item sold out'); return; }
+        const spice = spices[item.id]||'Medium';
+        const key = `${item.id}-${spice}`;
+        setCart(prev => {
+          const found=prev.find(i=>i.key===key);
+          return found
+            ? prev.map(i=>i.key===key?{...i,qty:i.qty+1}:i)
+            : [...prev,{...item,spice,qty:1,key}];
+        });
+        toast('✅ Added to cart');
+      };
+
+      // qty change
+      const chQty = (key,delta) => {
+        setCart(prev => prev.map(i=>
+          i.key===key?{...i,qty:Math.max(1,i.qty+delta)}:i
+        ));
+      };
+      const rmCart = key => setCart(prev=>prev.filter(i=>i.key!==key));
+
+      // place order
+      const place = () => {
+        const newOrd = {
+          items:cart,
+          total:cart.reduce((s,i)=>s+i.price*i.qty,0),
+          status:'Preparing',
+          time:new Date().toLocaleTimeString()
+        };
+        const updated=[...orders,newOrd];
+        setOrders(updated);
+        localStorage.setItem('orders',JSON.stringify(updated));
+        setCart([]); toast('🎉 Order placed');
+      };
+
+      // clear orders
+      const clearAll = () => {
+        setOrders([]); localStorage.removeItem('orders');
+        toast('🗑️ Orders cleared');
+      };
+
+      // categories
+      const cats = ['All',...new Set(menu.map(i=>i.category))];
+      const visible = selectedCategory==='All'
+        ? menu
+        : menu.filter(i=>i.category===selectedCategory);
+
+      return (
+        <div>
+          {/* Category Filter */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {cats.map(c=>(
+              <button key={c}
+                onClick={()=>setSelectedCategory(c)}
+                className={`px-3 py-1 rounded-full border
+                  ${selectedCategory===c?'bg-blue-600 text-white':'bg-gray-200'}`}
+              >{c}</button>
+            ))}
+          </div>
+
+          {/* View Toggle */}
+          <div className="flex justify-between mb-4">
+            <h2 className="text-2xl font-semibold">
+              {viewOrders?'My Orders':'Menu'}
+            </h2>
+            <button onClick={()=>setViewOrders(!viewOrders)}
+              className="bg-blue-500 text-white px-3 py-1 rounded"
+            >
+              {viewOrders?'← Back':'📦 Orders'}
+            </button>
+          </div>
+
+          {viewOrders ? (
+            /* ORDERS LIST */
+            <div>
+              {orders.length===0
+                ? <p>No orders yet.</p>
+                : orders.map((o,idx)=>(
+                  <div key={idx}
+                       className="bg-white/70 backdrop-blur-md p-4 rounded-xl shadow mb-4 border border-white/40">
+                    <div className="flex justify-between mb-2">
+                      <span className="font-bold">Order #{idx+1}</span>
+                      <span className={`text-sm px-2 py-1 rounded-full
+                        ${o.status==='Preparing'?'bg-yellow-100 text-yellow-800':'bg-green-100 text-green-800'}`}
+                      >{o.status}</span>
+                    </div>
+                    <ul className="text-sm mb-2">
+                      {o.items.map((it,j)=><li key={j}>{it.name} × {it.qty} ({it.spice})</li>)}
+                    </ul>
+                    <div className="flex justify-between text-sm">
+                      <span>Total: ₹{o.total}</span>
+                      <span>{o.time}</span>
+                    </div>
+                  </div>
+                ))
+              }
+              <button onClick={clearAll}
+                className="bg-red-500 text-white px-4 py-1 rounded"
+              >Clear Orders</button>
+            </div>
+          ) : (
+            /* MENU GRID */
+            <>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {visible.map(item=>(
+                  <div key={item.id}
+                       className="relative bg-white/70 backdrop-blur-md p-4 rounded-xl shadow-xl border border-white/40">
+                    {/* Favorite */}
+                    <button onClick={()=>toggleFav(item.id)}
+                      className="absolute top-2 right-2 text-xl"
+                    >{favorites.includes(item.id)?'⭐':'☆'}</button>
+
+                    {/* Availability Badge */}
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full mb-2
+                      ${item.available?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}`}
+                    >{item.available?'Available':'Sold Out'}</span>
+
+                    <img src={item.image} alt={item.name}
+                         className="w-full h-32 object-cover rounded mb-2"/>
+                    <h3 className="font-semibold">{item.name}</h3>
+                    <p className="text-sm text-gray-600">{item.desc}</p>
+                    <p className="mt-1 font-bold">₹{item.price}</p>
+
+                    {/* Spice Selector */}
+                    <select onChange={e=>onSpice(item.id,e.target.value)}
+                            className="w-full mt-2 border p-1 rounded">
+                      {['None','Mild','Medium','Spicy'].map(sp=>(
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+
+                    {/* Add Button */}
+                    <button onClick={()=>addToCart(item)}
+                      className="mt-2 w-full bg-green-600 hover:scale-105 transform text-white px-3 py-1 rounded transition"
+                    >➕ Add to Cart</button>
+                  </div>
+                ))}
+              </div>
+
+              {/* CART */}
+              {cart.length>0 && (
+                <div id="cart" className="bg-white p-4 rounded-xl shadow mt-6">
+                  <h2 className="text-xl font-semibold mb-2">
+                    🛒 Cart ({cart.reduce((s,i)=>s+i.qty,0)})
+                  </h2>
+                  {cart.map(i=>(
+                    <div key={i.key} className="flex justify-between items-center mb-2">
+                      <span>{i.name} ({i.spice}) × {i.qty}</span>
+                      <div className="flex gap-1">
+                        <button onClick={()=>chQty(i.key,-1)} className="bg-gray-200 px-2 rounded">–</button>
+                        <button onClick={()=>chQty(i.key,1)}  className="bg-gray-200 px-2 rounded">+</button>
+                        <button onClick={()=>rmCart(i.key)}    className="text-red-500 px-2">×</button>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="font-bold mt-2">Total: ₹{cart.reduce((s,i)=>s+i.price*i.qty,0)}</p>
+                  <button onClick={place}
+                    className="mt-3 w-full bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded">
+                    Place Order
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    // animate toast
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes fade-in { from{opacity:0;transform:translateY(-10px);} to{opacity:1;transform:translateY(0);} }
+      .animate-fade-in { animation:fade-in 0.3s ease-out; }
+    `;
+    document.head.appendChild(style);
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
 
